@@ -1,1 +1,5 @@
-flight_delays.csv
+*.csv
+*.sqlite3
+__pycache__/
+*.py[cod]
+charts/*.png

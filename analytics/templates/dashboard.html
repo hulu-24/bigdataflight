@@ -3,192 +3,364 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Big Data Flight Analytics Dashboard</title>
+    <title>Flight Quality Control</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
-        body { font-family: 'Inter', sans-serif; background-color: #f4f7f6; }
-        .card { border: none; border-radius: 15px; transition: transform 0.3s; }
-        .card:hover { transform: translateY(-5px); }
-        .stat-card { background: linear-gradient(45deg, #2193b0, #6dd5ed); color: white; }
-        .chart-container { position: relative; height: 300px; width: 100%; }
-        header { background: #2c3e50; color: white; padding: 20px 0; margin-bottom: 30px; border-radius: 0 0 20px 20px; }
+        :root {
+            --ink: #17212b;
+            --muted: #62717d;
+            --line: #dce5eb;
+            --panel: #ffffff;
+            --page: #f2f6f8;
+            --good: #1f9d7a;
+            --warn: #e6a23c;
+            --bad: #d64545;
+            --blue: #246b8f;
+        }
+        * { letter-spacing: 0; }
+        body { margin: 0; font-family: 'Inter', sans-serif; background: var(--page); color: var(--ink); }
+        .app-shell { min-height: 100vh; display: grid; grid-template-columns: 280px minmax(0, 1fr); }
+        .sidebar { background: #10202b; color: #fff; padding: 28px 22px; position: sticky; top: 0; height: 100vh; }
+        .brand-title { font-size: 22px; font-weight: 800; line-height: 1.15; }
+        .brand-subtitle { color: #aebcc6; font-size: 13px; margin-top: 8px; }
+        .nav-pills { gap: 8px; margin-top: 32px; }
+        .nav-pills .nav-link { color: #c9d5dc; border-radius: 10px; padding: 12px 14px; text-align: left; font-weight: 700; }
+        .nav-pills .nav-link.active { background: #e8f5f1; color: #0d3b34; }
+        .content { padding: 28px; }
+        .topbar { display: flex; justify-content: space-between; gap: 18px; align-items: flex-start; margin-bottom: 22px; }
+        .eyebrow { color: var(--blue); font-weight: 800; font-size: 12px; text-transform: uppercase; }
+        .page-title { font-size: 30px; font-weight: 800; margin: 4px 0 6px; }
+        .page-copy { color: var(--muted); margin: 0; max-width: 760px; }
+        .metric-strip { display: grid; grid-template-columns: repeat(4, minmax(160px, 1fr)); gap: 14px; margin-bottom: 22px; }
+        .metric-card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 16px 36px rgba(23, 33, 43, .07); }
+        .metric-card { padding: 18px; }
+        .metric-label { color: var(--muted); font-size: 13px; font-weight: 700; }
+        .metric-value { font-size: 28px; font-weight: 800; margin-top: 6px; }
+        .metric-note { color: var(--muted); font-size: 12px; margin-top: 2px; }
+        .panel { padding: 20px; }
+        .panel-title { font-size: 17px; font-weight: 800; margin: 0; }
+        .panel-subtitle { color: var(--muted); font-size: 13px; margin: 4px 0 0; }
+        .chart-box { position: relative; height: 340px; width: 100%; }
+        .score-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; }
+        .airline-card { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 16px; box-shadow: 0 12px 28px rgba(23, 33, 43, .06); }
+        .airline-card.good { border-top: 6px solid var(--good); }
+        .airline-card.warn { border-top: 6px solid var(--warn); }
+        .airline-card.bad { border-top: 6px solid var(--bad); }
+        .gauge { --gauge-color: var(--good); --gauge-value: 0deg; width: 118px; height: 118px; border-radius: 50%; display: grid; place-items: center; margin: 12px auto; position: relative; background: conic-gradient(var(--gauge-color) var(--gauge-value), #edf2f5 0); }
+        .gauge::before { content: ""; width: 78px; height: 78px; border-radius: 50%; background: #fff; position: absolute; }
+        .gauge span { position: relative; z-index: 1; font-weight: 800; font-size: 24px; }
+        .status-pill { display: inline-flex; align-items: center; border-radius: 999px; padding: 5px 10px; font-size: 12px; font-weight: 800; }
+        .status-pill.good { color: #0f684f; background: #dff5ee; }
+        .status-pill.warn { color: #805313; background: #fff1d8; }
+        .status-pill.bad { color: #923030; background: #ffe3e3; }
+        .data-table th { color: #51616c; font-size: 12px; text-transform: uppercase; }
+        .data-table td, .data-table th { padding: 13px 10px; border-bottom: 1px solid #edf2f5; }
+        .tab-page { display: none; }
+        .tab-page.active { display: block; }
+        .minor-section { opacity: .92; }
+        @media (max-width: 980px) {
+            .app-shell { grid-template-columns: 1fr; }
+            .sidebar { height: auto; position: relative; }
+            .metric-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .topbar { display: block; }
+        }
+        @media (max-width: 620px) {
+            .content { padding: 18px; }
+            .metric-strip { grid-template-columns: 1fr; }
+            .page-title { font-size: 24px; }
+        }
     </style>
 </head>
 <body>
+    <div class="app-shell">
+        <aside class="sidebar">
+            <div class="brand-title">Flight Quality Control</div>
+            <div class="brand-subtitle">Havayolu sirketleri icin operasyonel kalite ve gecikme sorumlulugu analizi</div>
+            <nav class="nav nav-pills flex-column" id="pageNav">
+                <button class="nav-link active" data-page="overview" type="button">Genel Bakis</button>
+                <button class="nav-link" data-page="airlines" type="button">Sirket Karnesi</button>
+                <button class="nav-link" data-page="causes" type="button">Gecikme Nedenleri</button>
+                <button class="nav-link" data-page="operations" type="button">Operasyon Riskleri</button>
+            </nav>
+        </aside>
 
-    <header class="shadow">
-        <div class="container text-center">
-            <h1 class="fw-bold">✈️ Big Data Uçuş Gecikme Analizi</h1>
-            <p class="lead mb-0">Apache Spark + MongoDB + Django Backend Stack</p>
-        </div>
-    </header>
-
-    <div class="container">
-        <!-- Üst Özet Bilgi -->
-        <div class="row mb-4">
-            <div class="col-md-12">
-                <div class="card stat-card shadow p-4 text-center">
-                    <h3 class="mb-1">Analiz Edilen Toplam Veri</h3>
-                    <h1 class="display-4 fw-bold">{{ total }}</h1>
-                    <p class="mb-0">Uçuş kaydı Spark motoru ile gerçek zamanlı işlendi.</p>
+        <main class="content">
+            <div class="topbar">
+                <div>
+                    <div class="eyebrow">Big Data Dashboard</div>
+                    <h1 class="page-title">Havayolu Kalite Kontrol Paneli</h1>
+                    <p class="page-copy">Sirket kaynakli gecikmeleri hava durumu ve trafik gibi dis etkenlerden ayirarak en saglikli havayolu sirketlerini siralar.</p>
                 </div>
             </div>
-        </div>
 
-        <div class="row">
-            <!-- Havayolunun Grafiği -->
-            <div class="col-md-7 mb-4">
-                <div class="card shadow h-100">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-primary">En Çok Geciken 10 Havayolu</h5>
-                        <hr>
-                        <div class="chart-container">
-                            <canvas id="airlineChart"></canvas>
+            <section id="overview" class="tab-page active">
+                <div class="metric-strip">
+                    <div class="metric-card">
+                        <div class="metric-label">Analiz Edilen Gecikmeli Ucus</div>
+                        <div class="metric-value">{{ total }}</div>
+                        <div class="metric-note">Spark tarafinda islenen kayit</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">En Saglikli Sirket</div>
+                        <div class="metric-value" id="bestAirline">-</div>
+                        <div class="metric-note" id="bestAirlineNote">Kalite skoru</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Sirket Kaynakli Gecikme</div>
+                        <div class="metric-value" id="companyShare">-</div>
+                        <div class="metric-note">Toplam gecikme icindeki pay</div>
+                    </div>
+                    <div class="metric-card">
+                        <div class="metric-label">Riskli Sirket Sayisi</div>
+                        <div class="metric-value" id="riskyCount">-</div>
+                        <div class="metric-note">Skoru 55 altinda olanlar</div>
+                    </div>
+                </div>
+
+                <div class="row g-3 mb-3">
+                    <div class="col-xl-8">
+                        <div class="panel h-100">
+                            <h2 class="panel-title">Kalite Liderleri</h2>
+                            <p class="panel-subtitle">Skor, sirket kaynakli gecikme orani ve ortalama sirket kaynakli gecikmeye gore hesaplanir.</p>
+                            <div class="chart-box">
+                                <canvas id="qualityChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4">
+                        <div class="panel h-100">
+                            <h2 class="panel-title">Sorumluluk Ayrimi</h2>
+                            <p class="panel-subtitle">Dis etkenler sirket kalite skorunu dogrudan dusurmez.</p>
+                            <div class="chart-box">
+                                <canvas id="responsibilityChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Gecikme Sebepleri Grafiği -->
-            <div class="col-md-5 mb-4">
-                <div class="card shadow h-100">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-primary">Gecikme Sebepleri Dağılımı</h5>
-                        <hr>
-                        <div class="chart-container">
-                            <canvas id="reasonChart"></canvas>
+                <div class="panel">
+                    <h2 class="panel-title">Sirket Gosterge Kartlari</h2>
+                    <p class="panel-subtitle">Yesil, sari ve kirmizi durumlar kalite skoruna gore belirlenir.</p>
+                    <div id="airlineScoreCards" class="score-grid mt-3"></div>
+                </div>
+            </section>
+
+            <section id="airlines" class="tab-page">
+                <div class="panel mb-3">
+                    <h2 class="panel-title">Sirket Karnesi</h2>
+                    <p class="panel-subtitle">Tum havayollari icin kalite skoru, sirket kaynakli oran ve dis etken orani.</p>
+                    <div class="table-responsive mt-3">
+                        <table class="table data-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Sirket</th>
+                                    <th>Durum</th>
+                                    <th>Skor</th>
+                                    <th>Sirket Kaynakli Oran</th>
+                                    <th>Sirket Kaynakli Ortalama</th>
+                                    <th>Dis Etken Orani</th>
+                                </tr>
+                            </thead>
+                            <tbody id="qualityTable"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="panel">
+                    <h2 class="panel-title">En Cok Geciken Sirketler</h2>
+                    <div class="chart-box">
+                        <canvas id="airlineChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="causes" class="tab-page">
+                <div class="row g-3">
+                    <div class="col-xl-5">
+                        <div class="panel h-100">
+                            <h2 class="panel-title">Gecikme Nedenleri</h2>
+                            <div class="chart-box">
+                                <canvas id="reasonChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-7">
+                        <div class="panel h-100">
+                            <h2 class="panel-title">Bakim Kaynakli Gecikmeler</h2>
+                            <div class="chart-box" style="height: 420px;">
+                                <canvas id="maintenanceChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
+            </section>
 
-        <!-- Maintenance Analizi Grafiği -->
-        <div class="row mb-4">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-primary">Havayolu Bazlı Bakım (Maintenance) Gecikme Sayıları</h5>
-                        <hr>
-                        <div class="chart-container" style="height: 400px;">
-                            <canvas id="maintenanceChart"></canvas>
-                        </div>
+            <section id="operations" class="tab-page minor-section">
+                <div class="panel">
+                    <h2 class="panel-title">Ikincil Operasyon Riskleri</h2>
+                    <p class="panel-subtitle">Havalimani bazli riskler sirket kalitesini tek basina belirlemez; operasyonel yogunlugu okumak icin kullanilir.</p>
+                    <div class="table-responsive mt-3">
+                        <table class="table data-table align-middle mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Kalkis Havalimani</th>
+                                    <th>Ortalama Gecikme</th>
+                                    <th>Geciken Ucus Sayisi</th>
+                                    <th>Risk Seviyesi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="airportTable"></tbody>
+                        </table>
                     </div>
                 </div>
-            </div>
-        </div>
-
-        <!-- Havalimanı Tablosu -->
-        <div class="row mb-5">
-            <div class="col-12">
-                <div class="card shadow">
-                    <div class="card-body">
-                        <h5 class="card-title fw-bold text-primary">Kalkış Havalimanı Bazlı Gecikme Sıralaması</h5>
-                        <div class="table-responsive mt-3">
-                            <table class="table table-hover align-middle">
-                                <thead class="table-dark">
-                                    <tr>
-                                        <th>Havalimanı Kodu (Origin)</th>
-                                        <th>Ortalama Gecikme (Dakika)</th>
-                                        <th>Toplam Uçuş Sayısı</th>
-                                        <th>Durum</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="airportTable">
-                                    <!-- Verileri JS ile buraya bas -->
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
+            </section>
+        </main>
     </div>
 
     <script>
-        // Djangodan gelen verileri safe şekilde JS nesnelerine çevriliyor
         const airlineData = JSON.parse('{{ airlines|safe }}');
         const reasonData = JSON.parse('{{ reasons|safe }}');
         const airportData = JSON.parse('{{ airports|safe }}');
         const maintenanceData = JSON.parse('{{ maintenance|safe }}');
+        const responsibilityData = JSON.parse('{{ responsibility|safe }}');
+        const qualityRankingData = JSON.parse('{{ quality_ranking|safe }}');
 
-        // Havayolu Bar Grafiği
+        const scoreMeta = (score) => {
+            if (score >= 70) return { key: 'good', label: 'Saglikli', color: '#1f9d7a' };
+            if (score >= 55) return { key: 'warn', label: 'Izlenmeli', color: '#e6a23c' };
+            return { key: 'bad', label: 'Riskli', color: '#d64545' };
+        };
+        const riskMeta = (avgDelay) => {
+            if (avgDelay >= 90) return { label: 'Yuksek Risk', badge: 'bg-danger' };
+            if (avgDelay >= 55) return { label: 'Orta Risk', badge: 'bg-warning text-dark' };
+            return { label: 'Dusuk Risk', badge: 'bg-success' };
+        };
+        const gaugeDegrees = (score) => Math.min(360, Math.round((score / 100) * 360));
+        const fmt = (value) => Number(value || 0).toLocaleString('tr-TR');
+        const topQualityData = qualityRankingData.slice(0, 10);
+
+        const companyItem = responsibilityData.find(item => item.DelayResponsibility === 'Company');
+        const totalResponsibility = responsibilityData.reduce((sum, item) => sum + item.Count, 0);
+        const companyPercent = totalResponsibility ? Math.round((companyItem?.Count || 0) / totalResponsibility * 100) : 0;
+        const best = qualityRankingData[0];
+
+        document.getElementById('bestAirline').textContent = best ? best.Airline : '-';
+        document.getElementById('bestAirlineNote').textContent = best ? `${best.QualityScore} kalite skoru` : 'Veri yok';
+        document.getElementById('companyShare').textContent = `${companyPercent}%`;
+        document.getElementById('riskyCount').textContent = qualityRankingData.filter(item => item.QualityScore < 55).length;
+
+        document.querySelectorAll('#pageNav .nav-link').forEach(button => {
+            button.addEventListener('click', () => {
+                document.querySelectorAll('#pageNav .nav-link').forEach(item => item.classList.remove('active'));
+                document.querySelectorAll('.tab-page').forEach(page => page.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(button.dataset.page).classList.add('active');
+            });
+        });
+
+        new Chart(document.getElementById('qualityChart'), {
+            type: 'bar',
+            data: {
+                labels: topQualityData.map(item => item.Airline),
+                datasets: [{
+                    label: 'Kalite Skoru',
+                    data: topQualityData.map(item => item.QualityScore),
+                    backgroundColor: topQualityData.map(item => scoreMeta(item.QualityScore).color),
+                    borderRadius: 8
+                }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, max: 100 } } }
+        });
+
+        new Chart(document.getElementById('responsibilityChart'), {
+            type: 'doughnut',
+            data: {
+                labels: responsibilityData.map(item => item.DelayResponsibility === 'Company' ? 'Sirket Kaynakli' : item.DelayResponsibility === 'External' ? 'Dis Etken' : 'Bilinmeyen'),
+                datasets: [{ data: responsibilityData.map(item => item.Count), backgroundColor: ['#d64545', '#246b8f', '#9aa8b2'], hoverOffset: 10 }]
+            },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
+        });
+
         new Chart(document.getElementById('airlineChart'), {
             type: 'bar',
             data: {
                 labels: airlineData.map(item => item.Airline),
-                datasets: [{
-                    label: 'Ortalama Gecikme (Dk)',
-                    data: airlineData.map(item => item.AvgDelay),
-                    backgroundColor: 'rgba(33, 147, 176, 0.7)',
-                    borderColor: 'rgba(33, 147, 176, 1)',
-                    borderWidth: 1,
-                    borderRadius: 5
-                }]
+                datasets: [{ label: 'Ortalama Gecikme', data: airlineData.map(item => item.AvgDelay), backgroundColor: '#246b8f', borderRadius: 8 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
         });
 
-        // Gecikme Sebepleri Grafiği
         new Chart(document.getElementById('reasonChart'), {
             type: 'doughnut',
             data: {
                 labels: reasonData.map(item => item.DelayCategory),
-                datasets: [{
-                    data: reasonData.map(item => item.Count),
-                    backgroundColor: [
-                        '#e74c3c', '#3498db', '#f1c40f', '#2ecc71', '#9b59b6', '#34495e', '#e67e22'
-                    ],
-                    hoverOffset: 10
-                }]
+                datasets: [{ data: reasonData.map(item => item.Count), backgroundColor: ['#d64545', '#246b8f', '#e6a23c', '#1f9d7a', '#6d597a', '#34495e', '#e76f51', '#43aa8b', '#bc4749', '#577590', '#8e44ad', '#2c3e50', '#d35400', '#7f8c8d'], hoverOffset: 10 }]
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false
-            }
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } }
         });
 
-        // Maintenance (Bakım) Grafiği
         new Chart(document.getElementById('maintenanceChart'), {
             type: 'bar',
             data: {
                 labels: maintenanceData.map(item => item.Airline),
-                datasets: [{
-                    label: 'Gecikme Sayısı',
-                    data: maintenanceData.map(item => item.count),
-                    backgroundColor: 'rgba(230, 126, 34, 0.7)',
-                    borderColor: 'rgba(230, 126, 34, 1)',
-                    borderWidth: 1
-                }]
+                datasets: [{ label: 'Gecikme Sayisi', data: maintenanceData.map(item => item.count), backgroundColor: '#d64545', borderRadius: 8 }]
             },
-            options: {
-                indexAxis: 'y',
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: { legend: { position: 'bottom' } }
-            }
+            options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
 
-        // Havalimanı Tablosu 
-        const tableBody = document.getElementById('airportTable');
-        airportData.forEach(item => {
-            const badgeClass = item.AvgDelay > 15 ? 'bg-danger' : 'bg-warning text-dark';
-            const row = `
+        const airlineScoreCards = document.getElementById('airlineScoreCards');
+        qualityRankingData.forEach(item => {
+            const status = scoreMeta(item.QualityScore);
+            airlineScoreCards.innerHTML += `
+                <article class="airline-card ${status.key}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <h3 class="h6 fw-bold mb-0">${item.Airline}</h3>
+                        <span class="status-pill ${status.key}">${status.label}</span>
+                    </div>
+                    <div class="gauge" style="--gauge-color:${status.color}; --gauge-value:${gaugeDegrees(item.QualityScore)}deg">
+                        <span>${item.QualityScore}</span>
+                    </div>
+                    <div class="row g-2 text-center">
+                        <div class="col-6">
+                            <div class="metric-label">Sirket Orani</div>
+                            <div class="fw-bold">${item.CompanyDelayRate}%</div>
+                        </div>
+                        <div class="col-6">
+                            <div class="metric-label">Ort. Sure</div>
+                            <div class="fw-bold">${item.CompanyAvgDelay ?? 0} dk</div>
+                        </div>
+                    </div>
+                </article>
+            `;
+        });
+
+        const qualityTableBody = document.getElementById('qualityTable');
+        qualityRankingData.forEach(item => {
+            const status = scoreMeta(item.QualityScore);
+            qualityTableBody.innerHTML += `
                 <tr>
-                    <td class="fw-bold">${item.Origin}</td>
-                    <td><span class="badge ${badgeClass}">${item.AvgDelay} dk</span></td>
-                    <td>${item.FlightCount.toLocaleString()}</td>
-                    <td><small class="text-muted">Analiz Tamamlandı</small></td>
+                    <td class="fw-bold">${item.Airline}</td>
+                    <td><span class="status-pill ${status.key}">${status.label}</span></td>
+                    <td class="fw-bold">${item.QualityScore}</td>
+                    <td>${item.CompanyDelayRate}%</td>
+                    <td>${item.CompanyAvgDelay ?? 0} dk</td>
+                    <td>${item.ExternalDelayRate}%</td>
                 </tr>
             `;
-            tableBody.innerHTML += row;
+        });
+
+        const airportTableBody = document.getElementById('airportTable');
+        airportData.forEach(item => {
+            const risk = riskMeta(item.AvgDelay);
+            airportTableBody.innerHTML += `
+                <tr>
+                    <td class="fw-bold">${item.Origin}</td>
+                    <td>${item.AvgDelay} dk</td>
+                    <td>${fmt(item.FlightCount)}</td>
+                    <td><span class="badge ${risk.badge}">${risk.label}</span></td>
+                </tr>
+            `;
         });
     </script>
 

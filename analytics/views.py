@@ -16,6 +16,8 @@ def dashboard_view(request):
     context = {
         "airlines": json.dumps(data.get("airlines", []) if data else []),
         "reasons": json.dumps(data.get("reasons", []) if data else []),
+        "responsibility": json.dumps(data.get("responsibility", []) if data else []),
+        "quality_ranking": json.dumps(data.get("quality_ranking", []) if data else []),
         "airports": json.dumps(data.get("airports", []) if data else []),
         "maintenance": json.dumps(data.get("maintenance_stats", []) if data else []), 
         "total": data.get("total_processed", 0) if data else 0
